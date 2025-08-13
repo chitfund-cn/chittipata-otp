@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OTP Demo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; }
+    .row { margin: 12px 0; }
+    label { display: block; margin-bottom: 6px; }
+    input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
+    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; }
+    .actions { display: flex; gap: 12px; }
+    .ok { background: #e8f5e9; padding: 10px; border-radius: 8px; }
+    .err { background: #ffebee; padding: 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Chittipata OTP – Demo</h1>
+  <p>Use this page to test your OTP server.</p>
+
+  <div class="row">
+    <label>Backend URL</label>
+    <input id="backend" value="http://localhost:8080" />
+  </div>
+
+  <div class="row">
+    <label>Mobile Number</label>
+    <input id="mobile" placeholder="Enter mobile (e.g., 9XXXXXXXXX)" />
+  </div>
+
+  <div class="actions">
+    <button id="send">Send OTP</button>
+  </div>
+
+  <div class="row">
+    <label>Enter OTP</label>
+    <input id="otp" placeholder="6-digit code" />
+  </div>
+
+  <div class="actions">
+    <button id="verify">Verify OTP</button>
+  </div>
+
+  <div id="msg"></div>
+
+  <script>
+    function msg(text, ok=false) {
+      const el = document.getElementById("msg");
+      el.className = ok ? "ok" : "err";
+      el.textContent = text;
+    }
+
+    async function postJSON(base, path, payload) {
+      const res = await fetch(base + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Request failed");
+      return data;
+    }
+
+    document.getElementById("send").onclick = async () => {
+      const backend = document.getElementById("backend").value.trim();
+      const mobile = document.getElementById("mobile").value.trim();
+      if (!backend || !mobile) return msg("Enter backend URL and mobile number");
+      try {
+        const data = await postJSON(backend, "/send-otp", { mobile });
+        msg("OTP sent. In TEST mode check your server console.", true);
+      } catch (e) {
+        msg(e.message);
+      }
+    };
+
+    document.getElementById("verify").onclick = async () => {
+      const backend = document.getElementById("backend").value.trim();
+      const mobile = document.getElementById("mobile").value.trim();
+      const otp    = document.getElementById("otp").value.trim();
+      if (!backend || !mobile || !otp) return msg("Enter all fields");
+      try {
+        const data = await postJSON(backend, "/verify-otp", { mobile, otp });
+        msg("OTP verified!", true);
+      } catch (e) {
+        msg(e.message);
+      }
+    };
+  </script>
+</body>
+</html>

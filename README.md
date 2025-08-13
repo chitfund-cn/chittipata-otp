@@ -1,3 +1,4 @@
+HEAD
 # Chittipata OTP Backend (Node.js)
 
 A tiny Express server to send and verify 6‑digit OTPs.
@@ -32,3 +33,6 @@ Change `BACKEND_URL` at the top of `demo.html` if needed.
 ## Notes
 - In production, use Redis/DB for OTP storage.
 - Add CAPTCHA to reduce abuse.
+
+# chittipata-otp
+edbab3b8966e52c0c5350aa02d96e1d227116b18

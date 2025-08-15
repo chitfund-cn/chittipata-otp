@@ -1,51 +1,81 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const axios = require("axios");
-const cors = require("cors");
+const express = require('express');
+const nodemailer = require('nodemailer');
+const otpGenerator = require('otp-generator');
+require('dotenv').config();
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-const otpStore = {}; // Temporary in-memory store
+// Configure email transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-// ✅ Send OTP
-app.post("/send-otp", async (req, res) => {
-  const phone = req.body.phone;
-  const otp = Math.floor(100000 + Math.random() * 900000);
+// POST route to send OTP
+let otpStore = {}; // Store OTPs temporarily
 
-  otpStore[phone] = otp;
+app.post('/send-otp', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).send('Email is required');
+
+  const otp = otpGenerator.generate(6, {
+    upperCaseAlphabets: false,
+    specialChars: false,
+  });
+
+  otpStore[email] = otp; // Save OTP for verification
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Your OTP Code',
+    text: `Your OTP is: ${otp}`,
+  };
 
   try {
-    const response = await axios.get("https://www.fast2sms.com/dev/bulkV2", {
-      params: {
-        authorization: "cLoqaDds02CNfuAytrPXTFJ3kWU8KOVIZSb54MhlYemQpRxgwi9JTgnkLKNyCwV4HsXe1lpjZSDmMQ05", // 🔑 Replace this
-        variables_values: otp,
-        route: "otp",
-        numbers: phone,
-      },
-    });
-
-    res.json({ message: "OTP sent successfully!" });
+    await transporter.sendMail(mailOptions);
+    res.status(200).send({ message: 'OTP sent successfully' });
   } catch (error) {
-    console.error("SMS Error:", error.message);
-    res.status(500).json({ message: "Failed to send OTP" });
+    console.error(error);
+    res.status(500).send('Failed to send OTP');
   }
 });
+app.post('/verify-otp', (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).send('Email and OTP are required');
 
-// ✅ Verify OTP
-app.post("/verify-otp", (req, res) => {
-  const { phone, otp } = req.body;
-
-  if (otpStore[phone] && otpStore[phone] == otp) {
-    delete otpStore[phone]; // Clear OTP after success
-    res.json({ message: "OTP verified successfully!" });
+  if (otpStore[email] === otp) {
+    delete otpStore[email]; // Clear OTP after verification
+    res.status(200).send({ success: true, message: 'OTP verified!' });
   } else {
-    res.status(400).json({ message: "Invalid OTP" });
+    res.status(401).send({ success: false, message: 'Invalid OTP' });
+  }
+});
+app.post('/send-payment-email', async (req, res) => {
+  const { email, amount, tenure } = req.body;
+  if (!email || !amount || !tenure) return res.status(400).send('Missing details');
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Chittipata Payment Confirmation',
+    text: `Dear user,\n\nYour payment of ₹${amount} for a ${tenure}-month plan has been received.\n\nThank you for choosing Chittipata!`
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.status(200).send({ success: true, message: 'Payment email sent!' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ success: false, message: 'Failed to send email' });
   }
 });
 
-// ✅ Start Server
+// Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
